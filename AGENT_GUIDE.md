@@ -405,6 +405,33 @@ See [`docker/README.md`](./docker/README.md) for base-image details.
 
 Single-task grasp-and-place with 50 clean episodes: ACT should reach **> 70% success** on the training configuration. Less → data problem (see §5), not model problem. Expect a drop when generalizing to new positions — scale episodes or diversity to recover.
 
+### 8.4 OMX local policy smoke test and supervised rollout
+
+For the local OMX project, `eval_omx.py` first checks the trained policy on a saved dataset frame without opening hardware:
+
+```bash
+/home/sam/miniforge3/envs/lerobot/bin/python /home/sam/lerobot/eval_omx.py check
+```
+
+This confirms the checkpoint loads and produces a finite action with the expected six-joint shape. It does **not** show that the robot will complete the task. The installed `lerobot-eval` command evaluates configured Gym environments; use `eval_omx.py` for this physical OMX follower instead.
+
+Do not run a live rollout until a physical, safety-rated power cutoff is installed and tested, the follower serial connection is reliable, and the workspace is clear. The follower's previous incorrect-status-packet failure must be resolved first. Then:
+
+1. Put the robot and both cubes in the same starting arrangement used in the demonstrations. Keep people and fragile objects outside the arm's reach.
+2. Keep the physical cutoff within reach and make sure the arm and gripper can be safely supported if torque is removed.
+3. Start the bounded live runner:
+
+   ```bash
+   /home/sam/miniforge3/envs/lerobot/bin/python /home/sam/lerobot/eval_omx.py run --duration 3
+   ```
+
+4. Read the terminal warning and type `READY` only when prepared. The program connects the follower but waits for a browser click before sending policy actions.
+5. Open `http://localhost:8767`, verify the physical cutoff is reachable, and click **Start the short policy test** while standing beside the robot.
+6. Observe the motion continuously. Click **SOFTWARE STOP** for a normal stop request; use the physical cutoff for unexpected motion or if the software/browser/USB path is unresponsive.
+7. The live test is capped at three seconds and limits each joint target change to one normalized unit per command. This is only a short motion sanity check, not a complete task-success evaluation. After the run, inspect whether motion was smooth, approached the correct cube, and stopped as expected before considering a longer test.
+
+The browser stop is a best-effort software request checked between robot commands. It cannot interrupt an in-progress USB call and is **not** an emergency stop. On exit, the runner disconnects the follower and disables torque; ensure the arm is stable and nothing will fall or be pinched. Do not use the recorder's `http://localhost:8766` controls to stop policy inference; that page only controls data recording.
+
 ---
 
 ## 9. Further reading & resources

@@ -55,19 +55,21 @@ _CONTROL_PANEL_HTML = """<!doctype html>
     #next { background: #16794b; }
     #retry { background: #a65c00; }
     #quit { background: #ad2634; }
+    .warning { border: 2px solid #ad2634; border-radius: 10px; padding: 1rem; font-weight: 700; }
     #status { min-height: 1.5em; }
   </style>
 </head>
 <body>
   <h1>LeRobot recording controls</h1>
   <p>These controls work only while recording is active.</p>
+  <p class="warning">SOFTWARE CONTROLS ONLY — this page is not an emergency stop. It cannot stop motion if the browser, computer, process, or USB connection hangs. Keep a physical power cutoff within reach.</p>
   <div class="buttons">
     <button id="next">Finish and save this episode (n)</button>
     <button id="retry">Discard this episode and retry (r)</button>
-    <button id="quit">Stop recording (q)</button>
+    <button id="quit">Software stop: end recording (q)</button>
   </div>
-  <p><strong>Stop recording saves the current partial episode.</strong>
-     To discard it, choose &quot;Discard this episode and retry&quot; before stopping.</p>
+  <p><strong>The software stop asks the recording loop to stop at its next check; the current control step may finish, and the partial episode is saved.</strong>
+     To discard it, choose &quot;Discard this episode and retry&quot; before stopping. This button is not connected to policy inference.</p>
   <p id="status" role="status" aria-live="polite">Checking recording status...</p>
   <script>
     const status = document.getElementById("status");
@@ -110,7 +112,7 @@ _CONTROL_PANEL_HTML = """<!doctype html>
     document.getElementById("retry").onclick =
       () => send("retry", "Discard the current episode and record it again?");
     document.getElementById("quit").onclick =
-      () => send("quit", "Stop recording? The current partial episode will be saved.");
+      () => send("quit", "Request a software stop? The current control step may finish, the partial episode will be saved, and this is not an emergency stop.");
   </script>
 </body>
 </html>""".encode("utf-8")
@@ -179,7 +181,10 @@ class _RecordingControlPanel:
                 controls = {
                     "next": ("right", "Finish and save the current episode."),
                     "retry": ("left", "Discard the current episode and retry it."),
-                    "quit": ("esc", "Stop recording; the current partial episode is saved."),
+                    "quit": (
+                        "esc",
+                        "Software stop requested; the current control step may finish and the partial episode will be saved.",
+                    ),
                 }
                 if control not in controls:
                     self._respond(400, {"error": "Control must be next, retry, or quit."})
@@ -292,7 +297,7 @@ def build_config(*, resume: bool = False) -> RecordConfig:
         root=DATASET_ROOT,
         single_task=TASK,
         fps=30,
-        num_episodes=3,
+        num_episodes=5,
         episode_time_s=30,
         reset_time_s=15,
         streaming_encoding=True,
